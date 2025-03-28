@@ -56,7 +56,7 @@ go clean -cache && go clean -modcache
 go install github.com/3rr0r-505/GoMapper@<release tag>
 ```
 
-### Install from Release
+### Install from Release (✅ Recommended)
 
 You can also download pre-built executables for different platforms directly from the [releases page](https://github.com/3rr0r-505/GoMapper/releases).
 
@@ -99,6 +99,9 @@ Scan all ports and save the output to a file:
 ```bash
 GoMapper --host example.com --ports * --output "scan.txt"
 ```
+<br>
+
+`⚠️Note:` While installing via `go install` is quick and easy, it might encounter issues related to dependencies or updates in the future. If you face any update issues, consider downloading the pre-built executables from the [releases page](https://github.com/3rr0r-505/GoMapper/releases) for a smoother experience.
 
 ---
 
