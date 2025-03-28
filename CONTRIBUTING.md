@@ -1,4 +1,4 @@
-# Contributing to HoneyPott3r
+# Contributing to GoMapper
 
 Thank you for considering contributing to HoneyPott3r! We appreciate your interest in making our project better.
 
