@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"io"
@@ -13,11 +14,14 @@ import (
 	"time"
 )
 
+//go:embed assets/*
+var assets embed.FS
+
 var results []ScanResult
 var mu sync.Mutex
 
 func printAsciiBanner() {
-	content, err := os.ReadFile("cmd/assets/banner.txt")
+	content, err := assets.ReadFile("assets/banner.txt")
 	if err != nil {
 		fmt.Println("Error loading banner:", err)
 		return
