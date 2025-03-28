@@ -94,7 +94,7 @@ func getBanner(conn net.Conn, port int) {
 	}
 
 	// DEBUG Banners
-	println("DEBUG:: Port:", port, "Banner:", banner)
+	// println("DEBUG:: Port:", port, "Banner:", banner)
 
 	// Identify service and version
 	service := identifyServiceFromBanner(banner)
