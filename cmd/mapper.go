@@ -146,9 +146,9 @@ func Execute() {
 		fmt.Println("  --ports   string    Port range or specific ports (default: top 1000 ports of Nmap)")
 		fmt.Println("  --output  string    Store result in a txt file")
 		fmt.Println("\nExamples:")
-		fmt.Println("  go run main.go --host 192.168.1.1 --ports 80,443")
-		fmt.Println("  go run main.go --host example.com --ports 20-25")
-		fmt.Println("  go run main.go --host example.com --ports * --output \"scan.txt\"")
+		fmt.Println("  GoMapper --host 192.168.1.1 --ports 80,443")
+		fmt.Println("  GoMapper --host example.com --ports 20-25")
+		fmt.Println("  GoMapper --host example.com --ports * --output \"scan.txt\"")
 		os.Exit(1)
 	}
 
