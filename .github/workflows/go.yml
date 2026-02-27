@@ -1,28 +1,173 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: Go
+name: GoMapper CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
+    tags:
+      - "v*"
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-
-  build:
+  # ---------------------------
+  # 1️⃣ Static Code Security Scan
+  # ---------------------------
+  static-code-check:
+    name: Static Code Check (Gosec + Lint)
     runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.gosec.outputs.summary }}
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
 
-    - name: Build
-      run: go build -v ./...
+      - name: Install Tools
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-    - name: Test
-      run: go test -v ./...
+      - name: Gosec Scan
+        id: gosec
+        run: |
+          gosec ./... -fmt=json -out=gosec_report.json || true
+          HIGH=$(jq '[.Issues[] | select(.severity=="HIGH")] | length' gosec_report.json)
+          MEDIUM=$(jq '[.Issues[] | select(.severity=="MEDIUM")] | length' gosec_report.json)
+          LOW=$(jq '[.Issues[] | select(.severity=="LOW")] | length' gosec_report.json)
+          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+
+      - name: Lint Check
+        run: |
+          golangci-lint run || true
+
+  # ---------------------------
+  # 2️⃣ Dependency Vulnerability Check
+  # ---------------------------
+  dependency-check:
+    name: Dependency Check (govulncheck)
+    runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.vulncheck.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+
+      - name: Install govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        id: vulncheck
+        run: |
+          govulncheck ./... -json > govulncheck_report.json || true
+          if [ -s govulncheck_report.json ] && jq empty govulncheck_report.json 2>/dev/null; then
+              HIGH=$(jq '[.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' govulncheck_report.json)
+              MEDIUM=$(jq '[.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' govulncheck_report.json)
+              LOW=$(jq '[.Vulnerabilities[]? | select(.Severity=="LOW")] | length' govulncheck_report.json)
+          else
+              HIGH=0
+              MEDIUM=0
+              LOW=0
+          fi
+          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+
+  # ---------------------------
+  # 3️⃣ Combined Summary
+  # ---------------------------
+  combined-summary:
+    name: Combined Security Summary
+    runs-on: ubuntu-latest
+    needs:
+      - static-code-check
+      - dependency-check
+    steps:
+      - name: Show Combined Results
+        run: |
+          echo "=== Static Code Check ==="
+          echo "${{ needs.static-code-check.outputs.summary }}"
+          echo "=== Dependency Check ==="
+          echo "${{ needs.dependency-check.outputs.summary }}"
+
+  # ---------------------------
+  # 4️⃣ Release Build (on tag push)
+  # ---------------------------
+  release-build:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [static-code-check, dependency-check]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+
+      - name: Build Linux amd64
+        run: GOOS=linux GOARCH=amd64 go build -o GoMapper-linux-amd64 main.go
+
+      - name: Build Linux 386
+        run: GOOS=linux GOARCH=386 go build -o GoMapper-linux-x86 main.go
+
+      - name: Build Windows amd64
+        run: GOOS=windows GOARCH=amd64 go build -o GoMapper-windows-amd64.exe main.go
+
+      - name: Build Windows 386
+        run: GOOS=windows GOARCH=386 go build -o GoMapper-windows-x86.exe main.go
+
+      - name: Create source archives
+        run: |
+          git archive -o GoMapper-source.zip HEAD
+          git archive -o GoMapper-source.tar.gz --format=tar.gz HEAD
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: GoMapper-linux-amd64
+          asset_name: GoMapper-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Other Assets
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: GoMapper-linux-x86
+          asset_name: GoMapper-linux-x86
+          asset_content_type: application/octet-stream
+
+      - uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: GoMapper-windows-amd64.exe
+          asset_name: GoMapper-windows-amd64.exe
+          asset_content_type: application/octet-stream
+
+      - uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: GoMapper-windows-x86.exe
+          asset_name: GoMapper-windows-x86.exe
+          asset_content_type: application/octet-stream
+
+      - uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: GoMapper-source.zip
+          asset_name: GoMapper-source.zip
+          asset_content_type: application/zip
+
+      - uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: GoMapper-source.tar.gz
+          asset_name: GoMapper-source.tar.gz
+          asset_content_type: application/gzip
