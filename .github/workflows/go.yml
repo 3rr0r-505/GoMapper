@@ -41,6 +41,9 @@ jobs:
           HIGH=$(jq '[.Issues[]? | select(.Severity=="error")] | length' lint_report.json)
           MEDIUM=$(jq '[.Issues[]? | select(.Severity=="warning")] | length' lint_report.json)
           LOW=0
+          HIGH=${HIGH:-0}
+          MEDIUM=${MEDIUM:-0}
+          LOW=${LOW:-0}
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
       - name: Run govulncheck
@@ -56,6 +59,9 @@ jobs:
               MEDIUM=0
               LOW=0
           fi
+          HIGH=${HIGH:-0}
+          MEDIUM=${MEDIUM:-0}
+          LOW=${LOW:-0}
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
   combined-summary:
