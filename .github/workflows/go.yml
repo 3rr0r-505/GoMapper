@@ -20,7 +20,8 @@ jobs:
     name: Static Code Check
     runs-on: ubuntu-latest
     outputs:
-      summary: ${{ steps.lint.outputs.summary }}
+      lint-summary: ${{ steps.lint.outputs.summary }}
+      vuln-summary: ${{ steps.vuln.outputs.summary }}
     steps:
       - uses: actions/checkout@v3
 
@@ -34,6 +35,9 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           sudo apt-get update && sudo apt-get install -y jq
 
+      # --------------------------
+      # Run golangci-lint
+      # --------------------------
       - name: Run golangci-lint
         id: lint
         run: |
@@ -41,13 +45,17 @@ jobs:
           HIGH=$(jq '[.Issues[]? | select(.Severity=="error")] | length' lint_report.json)
           MEDIUM=$(jq '[.Issues[]? | select(.Severity=="warning")] | length' lint_report.json)
           LOW=0
-          # Ensure numeric defaults
           HIGH=${HIGH:-0}
           MEDIUM=${MEDIUM:-0}
           LOW=${LOW:-0}
-          # Safely write output
-          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+          tmpfile=$(mktemp)
+          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" > "$tmpfile"
+          cat "$tmpfile" >> "$GITHUB_OUTPUT"
+          rm "$tmpfile"
 
+      # --------------------------
+      # Run govulncheck
+      # --------------------------
       - name: Run govulncheck
         id: vuln
         run: |
@@ -61,13 +69,17 @@ jobs:
               MEDIUM=0
               LOW=0
           fi
-          # Ensure numeric defaults
           HIGH=${HIGH:-0}
           MEDIUM=${MEDIUM:-0}
           LOW=${LOW:-0}
-          # Safely write output
-          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+          tmpfile=$(mktemp)
+          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" > "$tmpfile"
+          cat "$tmpfile" >> "$GITHUB_OUTPUT"
+          rm "$tmpfile"
 
+  # --------------------------
+  # Combined Security Summary
+  # --------------------------
   combined-summary:
     if: github.event_name != 'release'
     name: Combined Security Summary
@@ -77,10 +89,10 @@ jobs:
     steps:
       - name: Show Combined Results
         run: |
-          echo "=== Static Code Check ==="
-          echo "${{ needs.static-code-check.outputs.summary }}"
-          echo "=== Dependency Check (govulncheck) ==="
-          echo "${{ needs.static-code-check.outputs.summary }}"
+          echo "=== GolangCI-Lint ==="
+          echo "${{ needs.static-code-check.outputs.lint-summary }}"
+          echo "=== Govulncheck ==="
+          echo "${{ needs.static-code-check.outputs.vuln-summary }}"
 
   # ==============================
   # 2️⃣ Release Build (Tag Push)
