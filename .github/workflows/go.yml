@@ -1,8 +1,5 @@
 name: GoMapper CI/CD
 
-# =========================
-# Triggers
-# =========================
 on:
   push:
     branches:
@@ -13,26 +10,21 @@ on:
   release:
     types: [created]
 
-# =========================
-# Jobs
-# =========================
 jobs:
 
-  # ======================================
-  # 1️⃣ Security Scan on commit / PR
-  # ======================================
-  static-code-scan:
+  # ==============================
+  # 1️⃣ Security Scan (Commit / PR)
+  # ==============================
+  static-code-check:
     if: github.event_name != 'release'
-    name: Static Code & Dependency Scan
+    name: Static Code Check
     runs-on: ubuntu-latest
     outputs:
-      summary: ${{ steps.summary.outputs.summary }}
+      summary: ${{ steps.lint.outputs.summary }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: 1.24
 
@@ -40,17 +32,18 @@ jobs:
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
+          sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Run golangci-lint (Static Analysis)
+      - name: Run golangci-lint
         id: lint
         run: |
-          golangci-lint run ./... --out-format=json > lint_report.json || true
+          golangci-lint run ./... --out-format json > lint_report.json || true
           HIGH=$(jq '[.Issues[] | select(.Severity=="error")] | length' lint_report.json)
           MEDIUM=$(jq '[.Issues[] | select(.Severity=="warning")] | length' lint_report.json)
           LOW=0
-          echo "summary=Static Check — High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
-      - name: Run govulncheck (Dependency Vulnerabilities)
+      - name: Run govulncheck
         id: vuln
         run: |
           govulncheck -json ./... > vuln_report.json || true
@@ -63,26 +56,33 @@ jobs:
               MEDIUM=0
               LOW=0
           fi
-          echo "summary=Dependency Check — High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
+          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
-      - name: Combine Summary
-        id: summary
+  combined-summary:
+    if: github.event_name != 'release'
+    name: Combined Security Summary
+    runs-on: ubuntu-latest
+    needs:
+      - static-code-check
+    steps:
+      - name: Show Combined Results
         run: |
-          echo "summary=Lint: ${{ steps.lint.outputs.summary }} | Vulnerabilities: ${{ steps.vuln.outputs.summary }}" >> $GITHUB_OUTPUT
-
-  # ======================================
-  # 2️⃣ Release Build on tag
-  # ======================================
+          echo "=== Static Code Check ==="
+          echo "${{ needs.static-code-check.outputs.summary }}"
+          echo "=== Dependency Check ==="
+          echo "${{ needs.static-code-check.outputs.summary }}"
+          
+  # ==============================
+  # 2️⃣ Release Build (Tag Push)
+  # ==============================
   release-build:
     if: github.event_name == 'release'
     name: Build GoMapper Binaries
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: 1.24
 
