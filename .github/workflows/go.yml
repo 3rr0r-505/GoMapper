@@ -41,9 +41,11 @@ jobs:
           HIGH=$(jq '[.Issues[]? | select(.Severity=="error")] | length' lint_report.json)
           MEDIUM=$(jq '[.Issues[]? | select(.Severity=="warning")] | length' lint_report.json)
           LOW=0
+          # Ensure numeric defaults
           HIGH=${HIGH:-0}
           MEDIUM=${MEDIUM:-0}
           LOW=${LOW:-0}
+          # Safely write output
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
       - name: Run govulncheck
@@ -59,9 +61,11 @@ jobs:
               MEDIUM=0
               LOW=0
           fi
+          # Ensure numeric defaults
           HIGH=${HIGH:-0}
           MEDIUM=${MEDIUM:-0}
           LOW=${LOW:-0}
+          # Safely write output
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
   combined-summary:
@@ -75,7 +79,7 @@ jobs:
         run: |
           echo "=== Static Code Check ==="
           echo "${{ needs.static-code-check.outputs.summary }}"
-          echo "=== Dependency Check ==="
+          echo "=== Dependency Check (govulncheck) ==="
           echo "${{ needs.static-code-check.outputs.summary }}"
 
   # ==============================
