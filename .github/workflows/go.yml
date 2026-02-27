@@ -15,7 +15,7 @@ jobs:
   static-code-check:
     name: Static Code Check (Gosec + Lint)
     runs-on: ubuntu-latest
-    if: github.ref_type != 'tag'
+    if: github.event_name != 'release'
     outputs:
       summary: ${{ steps.gosec.outputs.summary }}
     steps:
@@ -57,7 +57,7 @@ jobs:
   dependency-check:
     name: Dependency Check (govulncheck)
     runs-on: ubuntu-latest
-    if: github.ref_type != 'tag'
+    if: github.event_name != 'release'
     outputs:
       summary: ${{ steps.vulncheck.outputs.summary }}
     steps:
@@ -76,7 +76,7 @@ jobs:
       - name: Run govulncheck
         id: vulncheck
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
+          export PATH=$PATH:$(go env/GOPATH)/bin
           govulncheck ./... -json > govulncheck_report.json || true
           if [ -s govulncheck_report.json ] && jq empty govulncheck_report.json 2>/dev/null; then
             HIGH=$(jq '[.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' govulncheck_report.json)
@@ -95,7 +95,7 @@ jobs:
   combined-summary:
     name: Combined Security Summary
     runs-on: ubuntu-latest
-    if: github.ref_type != 'tag'
+    if: github.event_name != 'release'
     needs:
       - static-code-check
       - dependency-check
@@ -111,7 +111,7 @@ jobs:
 # 4️⃣ Release Build on GitHub Release
 # ---------------------------
   release-build:
-    name: Build Release Binaries
+    name: Build & Upload Release Binaries
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
