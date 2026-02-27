@@ -42,16 +42,15 @@ jobs:
         id: lint
         run: |
           golangci-lint run ./... --out-format json > lint_report.json || true
-          HIGH=$(jq '[.Issues[]? | select(.Severity=="error")] | length' lint_report.json)
-          MEDIUM=$(jq '[.Issues[]? | select(.Severity=="warning")] | length' lint_report.json)
+          if [ -s lint_report.json ] && jq -e empty lint_report.json >/dev/null 2>&1; then
+            HIGH=$(jq '[.Issues[]? | select(.Severity=="error")] | length' lint_report.json)
+            MEDIUM=$(jq '[.Issues[]? | select(.Severity=="warning")] | length' lint_report.json)
+          else
+            HIGH=0
+            MEDIUM=0
+          fi
           LOW=0
-          HIGH=${HIGH:-0}
-          MEDIUM=${MEDIUM:-0}
-          LOW=${LOW:-0}
-          tmpfile=$(mktemp)
-          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" > "$tmpfile"
-          cat "$tmpfile" >> "$GITHUB_OUTPUT"
-          rm "$tmpfile"
+          printf 'summary=%s\n' "High: ${HIGH:-0}, Medium: ${MEDIUM:-0}, Low: ${LOW:-0}" >> "$GITHUB_OUTPUT"
 
       # --------------------------
       # Run govulncheck
@@ -60,22 +59,17 @@ jobs:
         id: vuln
         run: |
           govulncheck -json ./... > vuln_report.json || true
-          if [ -s vuln_report.json ] && jq empty vuln_report.json 2>/dev/null; then
-              HIGH=$(jq '[.Vulns[]? | select(.Severity=="HIGH")] | length' vuln_report.json)
-              MEDIUM=$(jq '[.Vulns[]? | select(.Severity=="MEDIUM")] | length' vuln_report.json)
-              LOW=$(jq '[.Vulns[]? | select(.Severity=="LOW")] | length' vuln_report.json)
+          # govulncheck emits a stream of JSON objects; slurp (-s) to ensure jq returns a single value.
+          if [ -s vuln_report.json ] && jq -s -e empty vuln_report.json >/dev/null 2>&1; then
+            HIGH=$(jq -s '[.[] | .Vulns[]? | select(.Severity=="HIGH")] | length' vuln_report.json)
+            MEDIUM=$(jq -s '[.[] | .Vulns[]? | select(.Severity=="MEDIUM")] | length' vuln_report.json)
+            LOW=$(jq -s '[.[] | .Vulns[]? | select(.Severity=="LOW")] | length' vuln_report.json)
           else
-              HIGH=0
-              MEDIUM=0
-              LOW=0
+            HIGH=0
+            MEDIUM=0
+            LOW=0
           fi
-          HIGH=${HIGH:-0}
-          MEDIUM=${MEDIUM:-0}
-          LOW=${LOW:-0}
-          tmpfile=$(mktemp)
-          echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" > "$tmpfile"
-          cat "$tmpfile" >> "$GITHUB_OUTPUT"
-          rm "$tmpfile"
+          printf 'summary=%s\n' "High: ${HIGH:-0}, Medium: ${MEDIUM:-0}, Low: ${LOW:-0}" >> "$GITHUB_OUTPUT"
 
   # --------------------------
   # Combined Security Summary
