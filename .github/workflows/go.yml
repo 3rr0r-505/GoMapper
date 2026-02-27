@@ -38,8 +38,8 @@ jobs:
         id: lint
         run: |
           golangci-lint run ./... --out-format json > lint_report.json || true
-          HIGH=$(jq '[.Issues[] | select(.Severity=="error")] | length' lint_report.json)
-          MEDIUM=$(jq '[.Issues[] | select(.Severity=="warning")] | length' lint_report.json)
+          HIGH=$(jq '[.Issues[]? | select(.Severity=="error")] | length' lint_report.json)
+          MEDIUM=$(jq '[.Issues[]? | select(.Severity=="warning")] | length' lint_report.json)
           LOW=0
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
@@ -48,9 +48,9 @@ jobs:
         run: |
           govulncheck -json ./... > vuln_report.json || true
           if [ -s vuln_report.json ] && jq empty vuln_report.json 2>/dev/null; then
-              HIGH=$(jq '[.Vulns[] | select(.Severity=="HIGH")] | length' vuln_report.json)
-              MEDIUM=$(jq '[.Vulns[] | select(.Severity=="MEDIUM")] | length' vuln_report.json)
-              LOW=$(jq '[.Vulns[] | select(.Severity=="LOW")] | length' vuln_report.json)
+              HIGH=$(jq '[.Vulns[]? | select(.Severity=="HIGH")] | length' vuln_report.json)
+              MEDIUM=$(jq '[.Vulns[]? | select(.Severity=="MEDIUM")] | length' vuln_report.json)
+              LOW=$(jq '[.Vulns[]? | select(.Severity=="LOW")] | length' vuln_report.json)
           else
               HIGH=0
               MEDIUM=0
@@ -71,7 +71,7 @@ jobs:
           echo "${{ needs.static-code-check.outputs.summary }}"
           echo "=== Dependency Check ==="
           echo "${{ needs.static-code-check.outputs.summary }}"
-          
+
   # ==============================
   # 2️⃣ Release Build (Tag Push)
   # ==============================
