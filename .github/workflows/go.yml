@@ -10,6 +10,9 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+
 jobs:
 
   # ==============================
@@ -129,14 +132,14 @@ jobs:
           tar -czf GoMapper-source-${VERSION}.tar.gz ./*
 
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             GoMapper-linux-amd64
             GoMapper-linux-x86
             GoMapper-windows-amd64.exe
             GoMapper-windows-x86.exe
-            GoMapper-source-${VERSION}.zip
-            GoMapper-source-${VERSION}.tar.gz
+            GoMapper-source-${{ env.VERSION }}.zip
+            GoMapper-source-${{ env.VERSION }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
