@@ -15,6 +15,7 @@ jobs:
   static-code-check:
     name: Static Code Check (Gosec + Lint)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'
     outputs:
       summary: ${{ steps.gosec.outputs.summary }}
     steps:
@@ -48,8 +49,7 @@ jobs:
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
       - name: Lint Check
-        run: |
-          golangci-lint run || true
+        run: golangci-lint run || true
 
 # ---------------------------
 # 2️⃣ Dependency Vulnerability Scan
@@ -57,6 +57,7 @@ jobs:
   dependency-check:
     name: Dependency Check (govulncheck)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'
     outputs:
       summary: ${{ steps.vulncheck.outputs.summary }}
     steps:
@@ -78,13 +79,13 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           govulncheck ./... -json > govulncheck_report.json || true
           if [ -s govulncheck_report.json ] && jq empty govulncheck_report.json 2>/dev/null; then
-              HIGH=$(jq '[.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' govulncheck_report.json)
-              MEDIUM=$(jq '[.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' govulncheck_report.json)
-              LOW=$(jq '[.Vulnerabilities[]? | select(.Severity=="LOW")] | length' govulncheck_report.json)
+            HIGH=$(jq '[.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' govulncheck_report.json)
+            MEDIUM=$(jq '[.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' govulncheck_report.json)
+            LOW=$(jq '[.Vulnerabilities[]? | select(.Severity=="LOW")] | length' govulncheck_report.json)
           else
-              HIGH=0
-              MEDIUM=0
-              LOW=0
+            HIGH=0
+            MEDIUM=0
+            LOW=0
           fi
           echo "summary=High: $HIGH, Medium: $MEDIUM, Low: $LOW" >> $GITHUB_OUTPUT
 
@@ -94,6 +95,7 @@ jobs:
   combined-summary:
     name: Combined Security Summary
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'
     needs:
       - static-code-check
       - dependency-check
@@ -112,7 +114,6 @@ jobs:
     name: Build Release Binaries
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [static-code-check, dependency-check]
     steps:
       - uses: actions/checkout@v3
 
