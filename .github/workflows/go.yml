@@ -3,10 +3,10 @@ name: GoMapper CI/CD
 on:
   push:
     branches: [main]
+    tags:
+      - "v*"
   pull_request:
     branches: [main]
-  release:
-    types: [published]
 
 # ---------------------------
 # 1️⃣ Static Code & Lint Scan
@@ -15,7 +15,7 @@ jobs:
   static-code-check:
     name: Static Code Check (Gosec + Lint)
     runs-on: ubuntu-latest
-    if: github.event_name != 'release'
+    if: github.ref_type != 'tag'
     outputs:
       summary: ${{ steps.gosec.outputs.summary }}
     steps:
@@ -52,12 +52,12 @@ jobs:
         run: golangci-lint run || true
 
 # ---------------------------
-# 2️⃣ Dependency Vulnerability Scan
+# 2️⃣ Dependency Vulnerability Scan (if go.sum exists)
 # ---------------------------
   dependency-check:
     name: Dependency Check (govulncheck)
     runs-on: ubuntu-latest
-    if: github.event_name != 'release'
+    if: github.ref_type != 'tag'
     outputs:
       summary: ${{ steps.vulncheck.outputs.summary }}
     steps:
@@ -73,15 +73,21 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: Run govulncheck
+      - name: Run govulncheck (only if go.sum exists)
         id: vulncheck
         run: |
-          export PATH=$PATH:$(go env/GOPATH)/bin
-          govulncheck ./... -json > govulncheck_report.json || true
-          if [ -s govulncheck_report.json ] && jq empty govulncheck_report.json 2>/dev/null; then
-            HIGH=$(jq '[.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' govulncheck_report.json)
-            MEDIUM=$(jq '[.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' govulncheck_report.json)
-            LOW=$(jq '[.Vulnerabilities[]? | select(.Severity=="LOW")] | length' govulncheck_report.json)
+          if [ -f go.sum ]; then
+            export PATH=$PATH:$(go env GOPATH)/bin
+            govulncheck ./... -json > govulncheck_report.json || true
+            if [ -s govulncheck_report.json ] && jq empty govulncheck_report.json 2>/dev/null; then
+              HIGH=$(jq '[.Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' govulncheck_report.json)
+              MEDIUM=$(jq '[.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' govulncheck_report.json)
+              LOW=$(jq '[.Vulnerabilities[]? | select(.Severity=="LOW")] | length' govulncheck_report.json)
+            else
+              HIGH=0
+              MEDIUM=0
+              LOW=0
+            fi
           else
             HIGH=0
             MEDIUM=0
@@ -95,7 +101,7 @@ jobs:
   combined-summary:
     name: Combined Security Summary
     runs-on: ubuntu-latest
-    if: github.event_name != 'release'
+    if: github.ref_type != 'tag'
     needs:
       - static-code-check
       - dependency-check
@@ -108,12 +114,12 @@ jobs:
           echo "${{ needs.dependency-check.outputs.summary }}"
 
 # ---------------------------
-# 4️⃣ Release Build on GitHub Release
+# 4️⃣ Release Build on Tag
 # ---------------------------
   release-build:
     name: Build & Upload Release Binaries
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v3
 
@@ -139,50 +145,15 @@ jobs:
           git archive -o GoMapper-source.zip HEAD
           git archive -o GoMapper-source.tar.gz --format=tar.gz HEAD
 
-      - name: Upload Linux amd64
-        uses: actions/upload-release-asset@v1
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: GoMapper-linux-amd64
-          asset_name: GoMapper-linux-amd64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Linux 386
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: GoMapper-linux-x86
-          asset_name: GoMapper-linux-x86
-          asset_content_type: application/octet-stream
-
-      - name: Upload Windows amd64
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: GoMapper-windows-amd64.exe
-          asset_name: GoMapper-windows-amd64.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Windows 386
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: GoMapper-windows-x86.exe
-          asset_name: GoMapper-windows-x86.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Source ZIP
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: GoMapper-source.zip
-          asset_name: GoMapper-source.zip
-          asset_content_type: application/zip
-
-      - name: Upload Source TAR.GZ
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: GoMapper-source.tar.gz
-          asset_name: GoMapper-source.tar.gz
-          asset_content_type: application/gzip
+          files: |
+            GoMapper-linux-amd64
+            GoMapper-linux-x86
+            GoMapper-windows-amd64.exe
+            GoMapper-windows-x86.exe
+            GoMapper-source.zip
+            GoMapper-source.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
