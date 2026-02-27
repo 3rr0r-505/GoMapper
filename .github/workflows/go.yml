@@ -146,7 +146,6 @@ jobs:
           asset_path: GoMapper-linux-amd64
           asset_name: GoMapper-linux-amd64
           asset_content_type: application/octet-stream
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Linux 386
         uses: actions/upload-release-asset@v1
@@ -155,7 +154,6 @@ jobs:
           asset_path: GoMapper-linux-x86
           asset_name: GoMapper-linux-x86
           asset_content_type: application/octet-stream
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows amd64
         uses: actions/upload-release-asset@v1
@@ -164,7 +162,6 @@ jobs:
           asset_path: GoMapper-windows-amd64.exe
           asset_name: GoMapper-windows-amd64.exe
           asset_content_type: application/octet-stream
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows 386
         uses: actions/upload-release-asset@v1
@@ -173,7 +170,6 @@ jobs:
           asset_path: GoMapper-windows-x86.exe
           asset_name: GoMapper-windows-x86.exe
           asset_content_type: application/octet-stream
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Source ZIP
         uses: actions/upload-release-asset@v1
@@ -182,7 +178,6 @@ jobs:
           asset_path: GoMapper-source.zip
           asset_name: GoMapper-source.zip
           asset_content_type: application/zip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Source TAR.GZ
         uses: actions/upload-release-asset@v1
@@ -191,4 +186,3 @@ jobs:
           asset_path: GoMapper-source.tar.gz
           asset_name: GoMapper-source.tar.gz
           asset_content_type: application/gzip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
